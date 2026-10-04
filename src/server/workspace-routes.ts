@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { Platform } from './platform.js';
 import { VoiceService } from './voice.js';
+import { seedHarness } from './harness-seed.js';
 import {
   learningContainerIdSchema,
   validateLearningSettings,
@@ -29,8 +30,11 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       conversations: platform.workspace.conversations(),
       setup: platform.setup(),
       calls: platform.workspace.calls(),
+      approvals: platform.workspace.approvals(),
+      telegram: platform.telegram.enabled,
     }),
   );
+  app.post('/harness/seed', (c) => c.json(seedHarness(platform), 201));
   app.post('/spaces', async (c) => {
     const data = z
       .object({

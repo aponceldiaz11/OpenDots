@@ -1,5 +1,14 @@
 import type { WebConfig } from './parallel.js';
 import type { SetupStatus } from '../shared/types.js';
+export interface HarnessSecrets {
+  opencodeGoApiKey?: string;
+  opencodeGoBaseUrl?: string;
+  opencodeGoModel?: string;
+  openrouterApiKey?: string;
+  openrouterBaseUrl?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+}
 export interface PlatformConfig extends WebConfig {
   intelligenceKey?: string;
   intelligenceApiUrl?: string;
@@ -7,6 +16,9 @@ export interface PlatformConfig extends WebConfig {
   model?: string;
   apiKey?: string;
   baseUrl: string;
+  providers?: HarnessSecrets;
+  telegramBotToken?: string;
+  telegramChatId?: string;
   computerSupervisorUrl?: string;
   computerSupervisorToken?: string;
   computerToken?: string;

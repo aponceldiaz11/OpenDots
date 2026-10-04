@@ -69,6 +69,19 @@ export interface Space {
   description: string;
   createdAt: number;
 }
+export type ProviderId =
+  'opencode-go' | 'openrouter-free' | 'openai' | 'custom';
+export type DotArea = 'orchestrator' | 'dev' | 'saas' | 'home' | 'general';
+export interface DotProviderConfig {
+  /** Inference provider used to route this Dot's turns. */
+  providerId: ProviderId;
+  /** Model override; falls back to the provider default. */
+  model?: string | null;
+  /** Base URL override for a compatible endpoint. */
+  baseUrl?: string | null;
+  /** Name of the server env var holding this Dot's credential. */
+  apiKeyEnv?: string | null;
+}
 export interface Dot {
   id: string;
   /** Default destination for saved pages, not ownership. */
@@ -81,6 +94,33 @@ export interface Dot {
   createdAt: number;
   learningContainerId?: string | null;
   skillDeliveryEnabled?: boolean;
+  /** Inference provider routing (multi-provider harness). */
+  providerId: ProviderId;
+  model?: string | null;
+  baseUrl?: string | null;
+  apiKeyEnv?: string | null;
+  /** Hierarchy: which area this Dot belongs to. */
+  area: DotArea;
+  /** Parent Dot id; the orchestrator has no parent. */
+  parentId?: string | null;
+  /** Root orchestrator agent. */
+  isOrchestrator?: boolean;
+  /** Proactive Telegram notifications for this Dot. */
+  telegramNotify?: boolean;
+  /** Sensitive actions require human approval before execution. */
+  sensitiveActions?: boolean;
+}
+export type ApprovalDecision = 'approved' | 'rejected' | 'expired';
+export interface ApprovalRecord {
+  id: string;
+  dotId: string;
+  threadId?: string | null;
+  title: string;
+  summary: string;
+  status: ApprovalDecision | 'pending';
+  createdAt: number;
+  decidedAt?: number | null;
+  decidedBy?: string | null;
 }
 export interface Conversation {
   id: string;
@@ -115,4 +155,6 @@ export interface WorkspaceState {
   conversations: Conversation[];
   setup: SetupStatus;
   calls: CallReceipt[];
+  approvals: ApprovalRecord[];
+  telegram: boolean;
 }

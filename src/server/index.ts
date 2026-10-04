@@ -8,6 +8,7 @@ import { Runner } from './runner.js';
 import { createApp } from './app.js';
 import { WorkspaceStore } from './workspace.js';
 import { Platform } from './platform.js';
+import { seedHarness } from './harness-seed.js';
 import type { PlatformConfig } from './platform-config.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
@@ -32,6 +33,17 @@ const config: PlatformConfig = {
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL,
   baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+  providers: {
+    opencodeGoApiKey: process.env.OPENCODE_GO_API_KEY,
+    opencodeGoBaseUrl: process.env.OPENCODE_GO_BASE_URL,
+    opencodeGoModel: process.env.OPENCODE_GO_MODEL,
+    openrouterApiKey: process.env.OPENROUTER_API_KEY,
+    openrouterBaseUrl: process.env.OPENROUTER_BASE_URL,
+    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+    telegramChatId: process.env.TELEGRAM_CHAT_ID,
+  },
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  telegramChatId: process.env.TELEGRAM_CHAT_ID,
   webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
   parallelApiKey: process.env.PARALLEL_API_KEY,
   browserUrl: process.env.BROWSER_URL,
@@ -54,6 +66,11 @@ const config: PlatformConfig = {
   ownerToken,
 };
 const platform = new Platform(store, workspace, config);
+if (process.env.HARNESS_AUTO_SEED === 'true') {
+  const seeded = seedHarness(platform);
+  if (seeded.created.length)
+    console.log(`Harness Dots seeded: ${seeded.created.join(', ')}`);
+}
 const researchConfig = {
   mode: 'live' as const,
   apiKey: config.apiKey,
