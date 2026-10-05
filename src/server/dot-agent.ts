@@ -11,8 +11,17 @@ import { HarnessAgent } from './harness-agent.js';
 import { chat, maxIterations } from '@tanstack/ai';
 import { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import { tanstackTools } from './tanstack-tools.js';
-import { approvalTool, delegationTool, type DelegateFn } from './harness-tools.js';
+import {
+  approvalTool,
+  delegationTool,
+  notificationTool,
+  type DelegateFn,
+} from './harness-tools.js';
 import { providerReady, resolveProvider } from './providers.js';
+import { parseUsage } from './usage.js';
+import { obsidianTools, vaultPrimer } from './obsidian-tools.js';
+import { homeAssistantTools } from './home-assistant-tools.js';
+import { loadSkills } from './skills.js';
 import type { TelegramService } from './telegram.js';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
@@ -36,6 +45,13 @@ export class DotAgent extends AbstractAgent {
     private channel = false,
     private telegram?: TelegramService,
     private delegate?: DelegateFn,
+    private onUsage?: (usage: {
+      providerId: string;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    }) => void,
   ) {
     super({ agentId: dotId });
   }
@@ -48,6 +64,7 @@ export class DotAgent extends AbstractAgent {
       this.channel,
       this.telegram,
       this.delegate,
+      this.onUsage,
     );
   }
   abortRun() {
@@ -272,10 +289,22 @@ export class DotAgent extends AbstractAgent {
           ? approvalTool(this.telegram, dot, input.threadId)
           : null;
         if (approval) serverTools.push(approval);
+        serverTools.push(...obsidianTools(this.config.obsidianVaultPath));
+        if (dot.area === 'home')
+          serverTools.push(...homeAssistantTools(this.config));
+        if (dot.area === 'comms' || dot.telegramNotify)
+          serverTools.push(
+            notificationTool(this.workspace, this.telegram, dot),
+          );
         if (dot.isOrchestrator && this.delegate)
           serverTools.push(
             delegationTool(this.workspace.dots(), this.delegate, controller),
           );
+        const skills = loadSkills();
+        const primer =
+          dot.area === 'dev'
+            ? vaultPrimer(this.config.obsidianVaultPath)
+            : '';
         const role = dot.isOrchestrator
           ? 'You are the Central Orchestrator Dot. You own the conversation, answer directly when you can, and delegate scoped work to specialist Dots with delegate_task. Keep control and summarize delegated results for the owner.'
           : `You are a specialist Dot in the "${dot.area}" area. Do your area's work and report clear results.`;
@@ -292,7 +321,12 @@ export class DotAgent extends AbstractAgent {
           return chat({
             adapter,
             messages: converted.messages as never,
-            systemPrompts: [prompt, ...converted.systemPrompts],
+            systemPrompts: [
+              prompt,
+              ...(skills ? [skills] : []),
+              ...(primer ? [primer] : []),
+              ...converted.systemPrompts,
+            ],
             abortController: ctx.abortController,
             threadId: ctx.input.threadId,
             runId: ctx.input.runId,
@@ -300,6 +334,16 @@ export class DotAgent extends AbstractAgent {
             agentLoopStrategy: maxIterations(5),
             tools: [...tanstackTools(serverTools), ...(converted.tools as never[])],
           });
+        }, {
+          onRunFinished: (chunk) => {
+            const usage = parseUsage(chunk);
+            if (usage.totalTokens)
+              this.onUsage?.({
+                providerId: provider.providerId,
+                model: provider.model,
+                ...usage,
+              });
+          },
         });
         subscription = this.inner
           .run({

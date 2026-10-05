@@ -1,0 +1,19 @@
+{
+  "name": "OpenDots Harness",
+  "short_name": "OpenDots",
+  "description": "Tu harness personal de agentes multi-proveedor en el Mac.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1412",
+  "theme_color": "#0f1412",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   ArrowUp,
   ArrowUpRight,
+  Bell,
   BookOpen,
   Clock3,
   Code2,
@@ -49,18 +50,19 @@ const AREA_LABELS: Record<string, string> = {
   dev: 'Dev',
   saas: 'SaaS',
   home: 'Domótica',
+  comms: 'Comunicaciones',
   general: 'General',
 };
-const AREA_ORDER = ['dev', 'saas', 'home', 'general'] as const;
+const AREA_ORDER = ['dev', 'saas', 'home', 'comms', 'general'] as const;
 
 export function App() {
   const [state, setState] = useState<State>();
   const [workspace, setWorkspace] = useState<WorkspaceState>();
   const [selectedDot, setSelectedDot] = useState('');
   const [selectedThread, setSelectedThread] = useState<string>();
-  const [view, rawSetView] = useState<'chat' | 'tasks' | 'memories' | 'space'>(
-    'chat',
-  );
+  const [view, rawSetView] = useState<
+    'chat' | 'tasks' | 'memories' | 'space' | 'notifications'
+  >('chat');
   const dirtyPage = useRef(false);
   const [spaceId, setSpaceId] = useState('');
   const [pageId, setPageId] = useState<string>();
@@ -269,6 +271,13 @@ export function App() {
       </main>
     );
   const orchestrator = workspace.dots.find((item) => item.isOrchestrator);
+  const usage = workspace.usage;
+  const unreadNotifications = workspace.notifications.filter(
+    (notification) => notification.status === 'unread',
+  ).length;
+  const quotaPercent = usage.quotaTokens
+    ? Math.min(100, Math.round((usage.totalTokens / usage.quotaTokens) * 100))
+    : 0;
   const areaGroups = AREA_ORDER.map((area) => ({
     area,
     dots: workspace.dots.filter(
@@ -484,6 +493,17 @@ export function App() {
             <small>{state.memories.length}</small>
           </button>
           <button
+            className={`nav-item ${view === 'notifications' ? 'active' : ''}`}
+            onClick={() => {
+              setView('notifications');
+              setMobile(false);
+            }}
+          >
+            <Bell size={17} />
+            <span>Notificaciones</span>
+            <small>{unreadNotifications}</small>
+          </button>
+          <button
             className="nav-item"
             onClick={() => setDialog({ type: 'settings' })}
           >
@@ -500,6 +520,20 @@ export function App() {
             <span>Make it your own</span>
             <ArrowUpRight size={13} />
           </a>
+          <div className="quota-widget" title="Consumo de OpenCode Go">
+            <div className="quota-head">
+              <span>OpenCode Go</span>
+              <small>
+                {usage.totalTokens.toLocaleString()}
+                {usage.quotaTokens
+                  ? ` / ${usage.quotaTokens.toLocaleString()}`
+                  : ''}
+              </small>
+            </div>
+            <div className="quota-bar">
+              <i style={{ width: `${quotaPercent}%` }} />
+            </div>
+          </div>
           <div className="version">
             OPEN SOURCE TEMPLATE <span>v0.1</span>
           </div>
@@ -534,7 +568,9 @@ export function App() {
                   ? 'Activity'
                   : view === 'space'
                     ? 'Pages'
-                    : 'Memories'}
+                    : view === 'notifications'
+                      ? 'Notificaciones'
+                      : 'Memories'}
             </strong>
           </div>
           <div className="top-actions">
@@ -752,12 +788,16 @@ export function App() {
                 <h1>
                   {view === 'memories'
                     ? 'Memories'
-                    : 'A little follow-through.'}
+                    : view === 'notifications'
+                      ? 'Alertas'
+                      : 'A little follow-through.'}
                 </h1>
                 <p>
                   {view === 'memories'
                     ? 'Preferences you choose to share with your Dots.'
-                    : 'Scheduled turns run on the server in their original conversation.'}
+                    : view === 'notifications'
+                      ? 'Avisos de tus Dots: alertas, PRs, disputas y aprobaciones.'
+                      : 'Scheduled turns run on the server in their original conversation.'}
                 </p>
               </div>
               {view === 'memories' && (
@@ -770,7 +810,54 @@ export function App() {
                 </button>
               )}
             </div>
-            {view === 'memories' ? (
+            {view === 'notifications' ? (
+              <>
+                <div className="notification-list">
+                  {workspace.notifications.map((notification) => (
+                    <article
+                      className={`notification-card level-${notification.level} ${notification.status}`}
+                      key={notification.id}
+                    >
+                      <Bell size={16} />
+                      <div>
+                        <strong>{notification.title}</strong>
+                        <p>{notification.body}</p>
+                        <small>
+                          {workspace.dots.find(
+                            (item) => item.id === notification.dotId,
+                          )?.name ?? 'Dot'}{' '}
+                          · {new Date(notification.createdAt).toLocaleString()}
+                        </small>
+                      </div>
+                      {notification.status === 'unread' && (
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            void mutate(
+                              `/notifications/${notification.id}/read`,
+                              'POST',
+                              {},
+                            )
+                          }
+                        >
+                          Marcar leída
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+                {!workspace.notifications.length && (
+                  <div className="large-empty">
+                    <Bell size={32} />
+                    <h2>Sin alertas por ahora.</h2>
+                    <p>
+                      Los Dots enviarán aquí sus avisos y solicitudes de
+                      aprobación.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : view === 'memories' ? (
               <>
                 <div className="memory-grid">
                   {state.memories.map((memory) => (

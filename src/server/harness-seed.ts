@@ -75,6 +75,16 @@ const SPECS: SeedSpec[] = [
     instructions:
       'Domótica: traduce lenguaje natural a llamadas de la API REST o WebSocket de Home Assistant. Confirma el estado antes de actuar y nunca ejecutes acciones destructivas sin aprobación.',
   },
+  {
+    key: 'comms',
+    name: 'notifications-comms-dot',
+    area: 'comms',
+    parentKey: 'orchestrator',
+    provider: 'opencode-go',
+    telegramNotify: true,
+    instructions:
+      'Comunicaciones y alertas: envía tarjetas de aviso al panel de la PWA móvil con send_notification y mensajes de Telegram con botones inline Aprobar/Rechazar para aprobaciones humanas. No uses servicios de pago (nada de Twilio/Vapi/PagerDuty).',
+  },
 ];
 
 export function seedHarness(platform: Platform): { created: string[] } {

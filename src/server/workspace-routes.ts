@@ -33,9 +33,15 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       calls: platform.workspace.calls(),
       approvals: platform.workspace.approvals(),
       telegram: platform.telegram.enabled,
+      notifications: platform.workspace.notifications(),
+      usage: platform.usage(),
     }),
   );
   app.post('/harness/seed', (c) => c.json(seedHarness(platform), 201));
+  app.get('/usage', (c) => c.json(platform.usage()));
+  app.post('/notifications/:id/read', (c) =>
+    c.json({ ok: platform.workspace.markNotificationRead(c.req.param('id')) }),
+  );
   app.post('/spaces', async (c) => {
     const data = z
       .object({

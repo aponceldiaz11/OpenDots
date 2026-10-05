@@ -4027,3 +4027,116 @@ h3 {
 .provider-custom {
   color: #94a3b8;
 }
+.delegation-card {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: rgba(139, 92, 246, 0.08);
+}
+.delegation-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.delegation-instructions {
+  margin: 8px 0 10px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.delegation-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.delegation-node {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid currentColor;
+}
+.delegation-node.target {
+  color: #8b5cf6;
+}
+.delegation-node.done {
+  color: #10b981;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.quota-widget {
+  margin: 8px 10px 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  font-size: 11px;
+}
+.quota-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+.quota-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+.quota-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #8b5cf6);
+  border-radius: 999px;
+}
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notification-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 20, 18, 0.5);
+}
+.notification-card p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+.notification-card.level-warning {
+  border-color: #f59e0b;
+}
+.notification-card.level-critical {
+  border-color: #ef4444;
+}
+.notification-card.read {
+  opacity: 0.6;
+}
+.notification-card .text-button {
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  :root {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .app.template-app {
+    padding-bottom: var(--safe-bottom);
+  }
+  .chat-composer {
+    padding-bottom: calc(8px + var(--safe-bottom));
+  }
+  .quota-widget {
+    margin-bottom: 8px;
+  }
+}

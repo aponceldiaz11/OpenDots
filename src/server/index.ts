@@ -35,11 +35,17 @@ const config: PlatformConfig = {
     opencodeGoModel: process.env.OPENCODE_GO_MODEL,
     openrouterApiKey: process.env.OPENROUTER_API_KEY,
     openrouterBaseUrl: process.env.OPENROUTER_BASE_URL,
+    opencodeGoQuotaTokens: process.env.OPENCODE_GO_QUOTA_TOKENS
+      ? Number(process.env.OPENCODE_GO_QUOTA_TOKENS)
+      : undefined,
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
     telegramChatId: process.env.TELEGRAM_CHAT_ID,
   },
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   telegramChatId: process.env.TELEGRAM_CHAT_ID,
+  obsidianVaultPath: process.env.OBSIDIAN_VAULT_PATH,
+  haUrl: process.env.HA_URL,
+  haToken: process.env.HA_TOKEN,
   webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
   parallelApiKey: process.env.PARALLEL_API_KEY,
   browserUrl: process.env.BROWSER_URL,

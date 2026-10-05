@@ -1,7 +1,9 @@
 import { defineTool, type ToolDefinition } from './tools.js';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import type { Dot } from '../shared/types.js';
 import type { TelegramService } from './telegram.js';
+import type { WorkspaceStore } from './workspace.js';
 
 export type DelegateFn = (input: {
   targetDotId: string;
@@ -40,6 +42,39 @@ export function approvalTool(
         threadId,
       });
       return { decision };
+    },
+  });
+}
+
+export function notificationTool(
+  workspace: WorkspaceStore,
+  telegram: TelegramService | undefined,
+  dot: Dot,
+): ToolDefinition {
+  return defineTool({
+    name: 'send_notification',
+    description:
+      'Send a notification card to the owner PWA alerts panel and, when configured, to Telegram. Use for proactive alerts (errors, PR ready, disputes) not for ordinary replies.',
+    parameters: z.object({
+      title: z.string().min(3).max(120),
+      body: z.string().min(1).max(1500),
+      level: z.enum(['info', 'warning', 'critical']).default('info'),
+    }),
+    execute: async ({ title, body, level }) => {
+      const record = workspace.createNotification({
+        id: randomUUID(),
+        dotId: dot.id,
+        title,
+        body,
+        level,
+      });
+      if (telegram?.enabled)
+        await telegram.notify(`🔔 ${title}\n\n${body}`).catch(() => undefined);
+      return {
+        delivered: true,
+        id: record.id,
+        telegram: telegram?.enabled ?? false,
+      };
     },
   });
 }

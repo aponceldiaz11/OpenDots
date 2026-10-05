@@ -9,9 +9,11 @@ import {
   Clock3,
   FilePlus,
   Link2,
+  Mic,
   Phone,
   PhoneOff,
   Square,
+  Volume2,
   X,
 } from 'lucide-react';
 import type { AssistantMessage } from '@ag-ui/core';
@@ -19,6 +21,7 @@ import type { CallReceipt, Conversation, Dot } from '../shared/types';
 import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { useChat } from './use-chat';
+import { useSpeech } from './use-speech';
 import { ToolCards } from './ToolCards';
 import { CallView } from './CallView';
 import type { Message } from '@ag-ui/core';
@@ -91,6 +94,20 @@ export function Chat({
   );
   const { messages, running, loaded, error, setError } = chat;
   const voice = useVoice(thread.id, onSaved, messages.at(-1)?.id);
+  const [speakReplies, setSpeakReplies] = useState(false);
+  const speech = useSpeech('es-ES', (text) =>
+    setDraft((previous) => `${previous}${previous ? ' ' : ''}${text}`),
+  );
+  const lastAssistant = messages.at(-1);
+  useEffect(() => {
+    if (
+      speakReplies &&
+      !running &&
+      lastAssistant?.role === 'assistant' &&
+      typeof lastAssistant.content === 'string'
+    )
+      speech.speak(lastAssistant.content);
+  }, [speakReplies, running]);
   const send = async (text: string) => {
     if (!text.trim() || running || !loaded || !contextReady || paused) return;
     setDraft('');
@@ -136,7 +153,8 @@ export function Chat({
           message.toolCalls?.some(
             (call) =>
               call.function.name.startsWith('computer_') ||
-              call.function.name === pageReviewTool.name,
+              call.function.name === pageReviewTool.name ||
+              call.function.name === 'delegate_task',
           ))),
   );
   return (
@@ -326,6 +344,28 @@ export function Chat({
             onClick={() => setSourceOpen(!sourceOpen)}
           >
             <Link2 size={19} />
+          </button>
+          {speech.supported && (
+            <button
+              type="button"
+              className={`icon-button ${speech.listening ? 'on-call' : ''}`}
+              aria-label={
+                speech.listening ? 'Stop dictation' : 'Dictate with the microphone'
+              }
+              onClick={() =>
+                speech.listening ? speech.stop() : speech.start()
+              }
+            >
+              <Mic size={19} />
+            </button>
+          )}
+          <button
+            type="button"
+            className={`icon-button ${speakReplies ? 'on-call' : ''}`}
+            aria-label="Leer respuestas en voz alta"
+            onClick={() => setSpeakReplies(!speakReplies)}
+          >
+            <Volume2 size={19} />
           </button>
           <textarea
             aria-label="Message your Dot"

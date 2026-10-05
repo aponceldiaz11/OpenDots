@@ -6,6 +6,7 @@ export interface HarnessSecrets {
   opencodeGoModel?: string;
   openrouterApiKey?: string;
   openrouterBaseUrl?: string;
+  opencodeGoQuotaTokens?: number;
   telegramBotToken?: string;
   telegramChatId?: string;
 }
@@ -19,6 +20,9 @@ export interface PlatformConfig extends WebConfig {
   providers?: HarnessSecrets;
   telegramBotToken?: string;
   telegramChatId?: string;
+  obsidianVaultPath?: string;
+  haUrl?: string;
+  haToken?: string;
   computerSupervisorUrl?: string;
   computerSupervisorToken?: string;
   computerToken?: string;

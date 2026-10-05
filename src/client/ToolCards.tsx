@@ -1,6 +1,7 @@
 import type { AssistantMessage } from '@ag-ui/core';
 import { ComputerToolCard } from './ComputerToolCard';
 import { PageReviewCard } from './PageReviewCard';
+import { DelegationCard } from './DelegationCard';
 import { pageReviewTool } from '../shared/page-review';
 
 function safeParse(value: unknown): unknown {
@@ -74,6 +75,19 @@ export function ToolCards({
               onSaved={onSaved}
             />
           );
+        if (call.function.name === 'delegate_task') {
+          const args = safeParse(call.function.arguments) as
+            | { target?: string; instructions?: string }
+            | undefined;
+          return (
+            <DelegationCard
+              key={call.id}
+              target={args?.target ?? 'especialista'}
+              instructions={args?.instructions ?? ''}
+              result={complete ? safeParse(result) : undefined}
+            />
+          );
+        }
         return null;
       })}
     </>

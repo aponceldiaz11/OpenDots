@@ -72,6 +72,12 @@ export class Platform {
       channel,
       this.telegram,
       this.delegateFn(),
+      (usage) => this.workspace.recordUsage({ dotId, ...usage }),
+    );
+  }
+  usage() {
+    return this.workspace.usageSummary(
+      this.config.providers?.opencodeGoQuotaTokens ?? null,
     );
   }
   async createConversation(dotId: string, title: string) {
