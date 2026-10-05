@@ -1,12 +1,12 @@
 import { webSearchProvider } from './parallel.js';
 import { createShutdown } from './shutdown.js';
-import { reportChannelFailure, safeFailure } from './slack-channel.js';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Store } from './store.js';
 import { Runner } from './runner.js';
 import { createApp } from './app.js';
 import { WorkspaceStore } from './workspace.js';
+import { ThreadStore } from './threads.js';
 import { Platform } from './platform.js';
 import { seedHarness } from './harness-seed.js';
 import type { PlatformConfig } from './platform-config.js';
@@ -21,15 +21,11 @@ if (
     'External binding requires an OWNER_TOKEN of at least 24 characters.',
   );
 const database = process.env.DATABASE_PATH ?? 'data/opendots.sqlite';
+const ownerId = process.env.OWNER_ID ?? 'opendots-owner';
 const store = new Store(database);
-const workspace = new WorkspaceStore(
-  database,
-  process.env.OWNER_ID ?? 'opendots-owner',
-);
+const workspace = new WorkspaceStore(database, ownerId);
+const threads = new ThreadStore(database, ownerId);
 const config: PlatformConfig = {
-  intelligenceKey: process.env.INTELLIGENCE_API_KEY,
-  intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,
-  intelligenceWsUrl: process.env.INTELLIGENCE_WS_URL || undefined,
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL,
   baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
@@ -55,17 +51,11 @@ const config: PlatformConfig = {
   voiceKey: process.env.VOICE_API_KEY,
   voiceModel: process.env.VOICE_MODEL,
   voiceName: process.env.VOICE_NAME ?? 'marin',
-  slackChannel: process.env.SLACK_CHANNEL_NAME,
-  slackTeam: process.env.SLACK_TEAM_ID,
-  slackUsers: (process.env.SLACK_USER_IDS ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean),
-  slackDotId: process.env.SLACK_DOT_ID || undefined,
-  runtimeUrl: `http://${host === '::1' ? '[::1]' : '127.0.0.1'}:${port}/api/copilotkit`,
+  slackUsers: [],
+  runtimeUrl: `http://${host === '::1' ? '[::1]' : '127.0.0.1'}:${port}/api/chat`,
   ownerToken,
 };
-const platform = new Platform(store, workspace, config);
+const platform = new Platform(store, workspace, threads, config);
 if (process.env.HARNESS_AUTO_SEED === 'true') {
   const seeded = seedHarness(platform);
   if (seeded.created.length)
@@ -88,16 +78,13 @@ const runner = new Runner(
     const threadId = workspace.taskThread(claim.id);
     if (!threadId)
       throw new Error(
-        'This legacy task has no Intelligence conversation. Create a new scheduled task from a conversation.',
+        'This legacy task has no conversation. Create a new scheduled task from a conversation.',
       );
-    progress('Running this task in its Intelligence conversation.');
+    progress('Running this task in its conversation.');
     const text = await platform.turn(threadId, claim.prompt, signal);
     return { text, sources: [], sample: false };
   },
 );
-const wsOrigin = new URL(
-  config.intelligenceWsUrl ?? 'wss://realtime.intelligence.copilotkit.ai',
-).origin;
 const app = createApp({
   store,
   runner,
@@ -115,7 +102,7 @@ app.use('*', async (c, next) => {
   c.header('Referrer-Policy', 'no-referrer');
   c.header(
     'Content-Security-Policy',
-    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ${wsOrigin}; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
   );
   await next();
 });
@@ -123,16 +110,11 @@ app.get('/api/*', (c) => c.json({ error: 'Not found.' }, 404));
 app.use('/*', serveStatic({ root: './dist/client' }));
 app.get('*', serveStatic({ path: './dist/client/index.html' }));
 const server = serve({ fetch: app.fetch, hostname: host, port }, (info) => {
-  console.log(`OpenDots template listening on http://${host}:${info.port}`);
+  console.log(`OpenDots harness listening on http://${host}:${info.port}`);
   runner.start();
   void platform
     .start()
-    .catch((error) =>
-      reportChannelFailure(
-        'Slack Channels activation failed; check setup status',
-        [safeFailure(error)],
-      ),
-    );
+    .catch((error) => console.error('Telegram channel failed:', error));
 });
 const shutdown = createShutdown({
   stopRunner: () => runner.stop(),
@@ -142,8 +124,7 @@ const shutdown = createShutdown({
       server.close((error) => (error ? reject(error) : resolve())),
     ),
   exit: (code) => process.exit(code),
-  report: (operation, error) =>
-    reportChannelFailure(operation, [safeFailure(error)]),
+  report: (operation, error) => console.error(operation, error),
 });
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

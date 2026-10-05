@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { Store } from '../src/server/store.js';
 import { WorkspaceStore } from '../src/server/workspace.js';
+import { ThreadStore } from '../src/server/threads.js';
 import { Platform } from '../src/server/platform.js';
 import { Runner } from '../src/server/runner.js';
 import { createApp } from '../src/server/app.js';
@@ -9,12 +10,14 @@ afterEach(() => cleanup.splice(0).forEach((fn) => fn()));
 function fixture(ownerToken?: string) {
   const store = new Store(':memory:');
   const ws = new WorkspaceStore(':memory:', 'owner');
+  const threads = new ThreadStore(':memory:', 'owner');
   cleanup.push(() => {
     store.close();
     ws.close();
+    threads.close();
   });
   const config = { mode: 'live' as const, baseUrl: 'https://example.com' };
-  const platform = new Platform(store, ws, {
+  const platform = new Platform(store, ws, threads, {
     baseUrl: config.baseUrl,
     voiceName: 'marin',
     slackUsers: [],
@@ -122,7 +125,7 @@ it('supports manual pages without credentials and returns validation, scope and 
         request({ dotId: ws.dots()[0].id }),
       )
     ).status,
-  ).toBe(503);
+  ).toBe(200);
   expect(ws.pages.get(space, page.id).content).toBe('First');
   expect(
     (

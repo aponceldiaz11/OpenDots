@@ -2,7 +2,6 @@ import { openPageLink } from './page-navigation';
 import { SpaceNav } from './SpaceNav';
 import { SpaceWorkspace } from './SpaceWorkspace';
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import {
   ArrowUp,
   ArrowUpRight,
@@ -31,7 +30,7 @@ import type {
   State,
   WorkspaceState,
 } from '../shared/types';
-import { api, ApiError, authHeaders, setToken } from './api';
+import { api, ApiError, setToken } from './api';
 import { Mascot } from './Mascot';
 import { Chat } from './Chat';
 import { ThreadList } from './ThreadList';
@@ -933,11 +932,5 @@ export function App() {
       )}
     </div>
   );
-  return configured ? (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" headers={authHeaders()}>
-      {content}
-    </CopilotKitProvider>
-  ) : (
-    content
-  );
+  return content;
 }

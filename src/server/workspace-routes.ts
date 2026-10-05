@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Platform } from './platform.js';
 import { VoiceService } from './voice.js';
 import { seedHarness } from './harness-seed.js';
+import { handleChat } from './chat.js';
 import {
   learningContainerIdSchema,
   validateLearningSettings,
@@ -144,6 +145,15 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   app.get('/conversations/:id/capture', (c) =>
     c.json(platform.workspace.capture(c.req.param('id'))),
   );
+  app.get('/conversations/:id/messages', (c) => {
+    try {
+      platform.workspace.requireThread(c.req.param('id'));
+    } catch {
+      return c.json({ error: 'Conversation not found.' }, 404);
+    }
+    return c.json({ messages: platform.threads.messages(c.req.param('id')) });
+  });
+  app.post('/chat', (c) => handleChat(platform, c.req.raw));
   app.post('/voice/calls', async (c) => {
     const data = z
       .object({ threadId: z.string(), sdp: z.string().max(100000) })
@@ -203,7 +213,9 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     platform.workspace.anchorCall(c.req.param('id'), data.data.anchorMessageId);
     return c.json(await voice.end(c.req.param('id'), data.data.transcript));
   });
-  app.all('/copilotkit/*', (c) => platform.handle(c.req.raw));
+  app.all('/copilotkit/*', (c) =>
+    c.json({ error: 'The CopilotKit runtime has been removed.' }, 410),
+  );
   app.onError((error, c) => {
     const text = error.message;
     const known =

@@ -40,10 +40,10 @@ it('reports setup honestly without a standalone agent fallback', () => {
     slackUsers: [],
     runtimeUrl: '',
   });
-  expect(status.intelligence).toBe(false);
+  expect(status.intelligence).toBe(true);
   expect(status.voice).toBe(false);
   expect(status.slack).toBe('not_configured');
-  expect(status.missing).toContain('INTELLIGENCE_API_KEY');
+  expect(status.missing).toContain('OPENCODE_GO_API_KEY');
 });
 it('rejects stop scope bypasses and misleading prefixes while allowing canonical owned routes', () => {
   const store = new WorkspaceStore(':memory:', 'owner');

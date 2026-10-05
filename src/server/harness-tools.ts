@@ -1,4 +1,4 @@
-import { defineTool, type ToolDefinition } from '@copilotkit/runtime/v2';
+import { defineTool, type ToolDefinition } from './tools.js';
 import { z } from 'zod';
 import type { Dot } from '../shared/types.js';
 import type { TelegramService } from './telegram.js';

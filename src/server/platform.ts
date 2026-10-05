@@ -1,33 +1,24 @@
 import { ComputerService } from './computer-service.js';
-import { PageService } from './page-service.js';
+import { PageService, type PageIntelligence } from './page-service.js';
 import { randomUUID } from 'node:crypto';
-import {
-  CopilotKitIntelligence,
-  CopilotRuntime,
-  createCopilotHonoHandler,
-  type CopilotHonoApp,
-} from '@copilotkit/runtime/v2';
-import { createSlackChannel } from './slack-channel.js';
-export { slackIdentity } from './slack-channel.js';
+import { EventType } from '@ag-ui/core';
+import type { Message, RunAgentInput } from '@ag-ui/core';
 import { Store } from './store.js';
 import { WorkspaceStore } from './workspace.js';
+import { ThreadStore } from './threads.js';
 import { DotAgent } from './dot-agent.js';
-import { runThreadTurn } from './headless.js';
 import { TelegramService } from './telegram.js';
 import type { DelegateFn } from './harness-tools.js';
 import { setupStatus, type PlatformConfig } from './platform-config.js';
-import { validateRuntimeScope } from './runtime-scope.js';
-import { learningSelector } from './learning.js';
+
 export class Platform {
-  private channelStartupFailed = false;
   readonly pages: PageService;
   readonly computers: ComputerService;
   readonly telegram: TelegramService;
-  readonly intelligence?: CopilotKitIntelligence;
-  readonly handler?: CopilotHonoApp;
   constructor(
     readonly store: Store,
     readonly workspace: WorkspaceStore,
+    readonly threads: ThreadStore,
     readonly config: PlatformConfig,
   ) {
     this.telegram = new TelegramService(
@@ -40,132 +31,60 @@ export class Platform {
       config,
       () => store.settings().paused,
     );
-    this.pages = new PageService(workspace, () => {
-      this.requireReady();
-      return this.intelligence!;
-    });
-    if (!config.intelligenceKey) return;
-    this.intelligence = new CopilotKitIntelligence({
-      apiKey: config.intelligenceKey,
-      apiUrl: config.intelligenceApiUrl,
-      wsUrl: config.intelligenceWsUrl,
-      getLearningContainerId: learningSelector(
-        workspace,
-        config.slackDotId ?? workspace.dots()[0]?.id,
-      ),
-    });
-    const channels = [];
-    if (config.slackChannel && config.slackTeam && config.slackUsers.length) {
-      const dotId = config.slackDotId ?? workspace.dots()[0].id;
-      if (!workspace.dot(dotId))
-        throw new Error('SLACK_DOT_ID does not identify an existing Dot.');
-      const slack = createSlackChannel({
-        name: config.slackChannel,
-        config,
-        ownerId: workspace.ownerId,
-        paused: () => store.settings().paused,
-        agent: () =>
-          new DotAgent(
-            store,
-            workspace,
-            config,
-            dotId,
-            true,
-            this.telegram,
-            this.delegateFn(),
-          ),
-      });
-      channels.push(slack);
-    }
-    const runtime = new CopilotRuntime({
-      intelligence: this.intelligence,
-      identifyUser: async () => ({
-        id: workspace.ownerId,
-        name: 'OpenDots owner',
+    this.pages = new PageService(workspace, () => this.pageIntelligence());
+  }
+  private pageIntelligence(): PageIntelligence {
+    return {
+      getOrCreateThread: async ({ threadId, agentId, name }) => {
+        if (
+          !this.workspace
+            .conversations()
+            .some((candidate) => candidate.id === threadId)
+        )
+          this.workspace.bindThread(threadId, agentId, name);
+        this.threads.ensureThread(threadId, agentId, name);
+      },
+      getThreadMessages: async ({ threadId }) => ({
+        messages: this.threads.messages(threadId),
       }),
-      agents: async () =>
-        Object.fromEntries(
-          workspace
-            .dots()
-            .map((dot) => [
-              dot.id,
-              new DotAgent(
-                store,
-                workspace,
-                config,
-                dot.id,
-                false,
-                this.telegram,
-                this.delegateFn(),
-              ),
-            ]),
-        ),
-      channels,
-      generateThreadNames: true,
-    });
-    this.handler = createCopilotHonoHandler({
-      runtime,
-      basePath: '/api/copilotkit',
-      cors: { origin: [] },
-    });
+    };
   }
   setup() {
-    return setupStatus(
-      this.config,
-      this.handler?.channels?.status().overall ??
-        (this.config.slackChannel ? 'setup_required' : 'not_configured'),
-      this.channelStartupFailed,
-    );
+    return setupStatus(this.config);
   }
   requireReady() {
     const missing = this.setup().missing;
     if (missing.length)
-      throw new Error(
-        `Setup required: ${missing.join(', ')}. Conversations require CopilotKit Intelligence.`,
-      );
+      throw new Error(`Setup required: ${missing.join(', ')}.`);
   }
   async start() {
     this.telegram.start();
-    if (this.handler?.channels) {
-      try {
-        await this.handler.channels.ready({ timeoutMs: 15000 });
-        this.channelStartupFailed = false;
-      } catch (error) {
-        this.channelStartupFailed = true;
-        throw error;
-      }
-    }
   }
   async stop() {
     await this.telegram.stop();
-    await this.handler?.channels?.stop();
+  }
+  createAgent(dotId: string, channel = false): DotAgent {
+    return new DotAgent(
+      this.store,
+      this.workspace,
+      this.config,
+      dotId,
+      channel,
+      this.telegram,
+      this.delegateFn(),
+    );
   }
   async createConversation(dotId: string, title: string) {
     this.requireReady();
     if (!this.workspace.dot(dotId)) throw new Error('Dot not found.');
     const id = randomUUID();
-    try {
-      await this.intelligence!.createThread({
-        threadId: id,
-        userId: this.workspace.ownerId,
-        agentId: dotId,
-        name: title,
-      });
-    } catch {
-      throw new Error(
-        'Intelligence could not create this conversation. Check the runtime key and connection.',
-      );
-    }
+    this.threads.ensureThread(id, dotId, title);
     return this.workspace.bindThread(id, dotId, title);
   }
   async history(threadId: string): Promise<string> {
-    this.requireReady();
     this.workspace.requireThread(threadId);
-    const history = await this.intelligence!.getThreadMessages({
-      threadId,
-      userId: this.workspace.ownerId,
-    });
-    return history.messages
+    return this.threads
+      .messages(threadId)
       .filter((message) => ['user', 'assistant'].includes(message.role))
       .slice(-12)
       .map(
@@ -174,53 +93,6 @@ export class Platform {
       )
       .join('\n')
       .slice(-12000);
-  }
-  async handle(request: Request): Promise<Response> {
-    if (!this.handler)
-      return Response.json(
-        { error: 'Setup required: INTELLIGENCE_API_KEY.' },
-        { status: 503 },
-      );
-    let body: unknown;
-    if (request.method !== 'GET' && request.method !== 'HEAD')
-      body = await request
-        .clone()
-        .json()
-        .catch(() => null);
-    try {
-      validateRuntimeScope(request, this.workspace, body);
-    } catch (error) {
-      return Response.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Conversation scope denied.',
-        },
-        { status: 403 },
-      );
-    }
-    return this.handler.fetch(request);
-  }
-  async turn(
-    threadId: string,
-    prompt: string,
-    signal: AbortSignal,
-    metadata?: Record<string, unknown>,
-  ): Promise<string> {
-    this.requireReady();
-    const thread = this.workspace.requireThread(threadId);
-    return runThreadTurn(
-      this.config.runtimeUrl,
-      this.config.ownerToken
-        ? { Authorization: `Bearer ${this.config.ownerToken}` }
-        : {},
-      thread.dotId,
-      threadId,
-      prompt,
-      signal,
-      metadata,
-    );
   }
   private delegateFn(): DelegateFn {
     return (input) => this.delegate(input);
@@ -255,5 +127,64 @@ export class Platform {
         .notify(`✅ ${target.name} terminó la tarea delegada.`)
         .catch(() => undefined);
     return result;
+  }
+  async turn(
+    threadId: string,
+    prompt: string,
+    signal: AbortSignal,
+    _metadata?: Record<string, unknown>,
+  ): Promise<string> {
+    this.requireReady();
+    const thread = this.workspace.requireThread(threadId);
+    const history = this.threads.messages(threadId);
+    const userMessage: Message = {
+      id: randomUUID(),
+      role: 'user',
+      content: prompt,
+    };
+    this.threads.appendMessage(threadId, userMessage);
+    const input: RunAgentInput = {
+      threadId,
+      runId: randomUUID(),
+      state: {},
+      context: [],
+      tools: [],
+      forwardedProps: {},
+      messages: [...history, userMessage],
+    };
+    return this.collectTurn(thread.dotId, input, threadId, signal);
+  }
+  private collectTurn(
+    dotId: string,
+    input: RunAgentInput,
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const agent = this.createAgent(dotId);
+      let text = '';
+      const stop = () => agent.abortRun();
+      signal.addEventListener('abort', stop, { once: true });
+      const subscription = agent.run(input).subscribe({
+        next: (event) => {
+          if (event.type === EventType.TEXT_MESSAGE_CHUNK) text += event.delta;
+        },
+        error: (error: unknown) => {
+          signal.removeEventListener('abort', stop);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        },
+        complete: () => {
+          signal.removeEventListener('abort', stop);
+          subscription.unsubscribe();
+          if (text.trim())
+            this.threads.appendMessage(threadId, {
+              id: randomUUID(),
+              role: 'assistant',
+              content: text,
+            } satisfies Message);
+          resolve(text);
+        },
+      });
+    });
   }
 }

@@ -85,6 +85,19 @@ export class ThreadStore {
     return thread;
   }
 
+  /** Registers a known thread id (e.g. a page conversation) if absent. */
+  ensureThread(id: string, dotId: string, title: string): ThreadRecord {
+    const existing = this.thread(id);
+    if (existing) return existing;
+    const now = Date.now();
+    this.db
+      .prepare(
+        'INSERT OR IGNORE INTO agent_threads(id, dotId, ownerId, title, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+      )
+      .run(id, dotId, this.ownerId, title, now, now);
+    return this.thread(id)!;
+  }
+
   renameThread(id: string, title: string): ThreadRecord {
     this.requireThread(id);
     this.db
