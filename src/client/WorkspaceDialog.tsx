@@ -53,6 +53,21 @@ export function WorkspaceDialog({
   const [skillDelivery, setSkillDelivery] = useState(
     dialog.type === 'dot' ? (dialog.dot?.skillDeliveryEnabled ?? false) : false,
   );
+  const [providerId, setProviderId] = useState<Dot['providerId']>(
+    dialog.type === 'dot' ? (dialog.dot?.providerId ?? 'custom') : 'custom',
+  );
+  const [providerModel, setProviderModel] = useState(
+    dialog.type === 'dot' ? (dialog.dot?.model ?? '') : '',
+  );
+  const [area, setArea] = useState<Dot['area']>(
+    dialog.type === 'dot' ? (dialog.dot?.area ?? 'general') : 'general',
+  );
+  const [telegramNotify, setTelegramNotify] = useState(
+    dialog.type === 'dot' ? (dialog.dot?.telegramNotify ?? false) : false,
+  );
+  const [sensitiveActions, setSensitiveActions] = useState(
+    dialog.type === 'dot' ? (dialog.dot?.sensitiveActions ?? false) : false,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const container = useRef<HTMLElement>(null);
@@ -142,6 +157,11 @@ export function WorkspaceDialog({
                 memoryAllowed: memory,
                 learningContainerId: learningContainer.trim() || null,
                 skillDeliveryEnabled: skillDelivery,
+                providerId,
+                model: providerModel.trim() || null,
+                area,
+                telegramNotify,
+                sensitiveActions,
               };
             }
             if (dialog.type === 'settings') {
@@ -209,6 +229,77 @@ export function WorkspaceDialog({
                 }
               />
             </>
+          )}
+          {dialog.type === 'dot' && (
+            <fieldset className="space-access-fields">
+              <legend>Proveedor de inferencia</legend>
+              <label className="field-label" htmlFor="provider-id">
+                Proveedor
+              </label>
+              <select
+                id="provider-id"
+                value={providerId}
+                onChange={(event) =>
+                  setProviderId(event.target.value as Dot['providerId'])
+                }
+              >
+                <option value="opencode-go">OpenCode Go</option>
+                <option value="openrouter-free">OpenRouter :free</option>
+                <option value="openai">OpenAI</option>
+                <option value="custom">Custom (OPENAI_*)</option>
+              </select>
+              <label className="field-label" htmlFor="provider-model">
+                Modelo
+              </label>
+              <input
+                id="provider-model"
+                value={providerModel}
+                maxLength={120}
+                placeholder="opencode-go/… o openrouter/auto:free"
+                onChange={(event) => setProviderModel(event.target.value)}
+              />
+              <label className="field-label" htmlFor="dot-area">
+                Área
+              </label>
+              <select
+                id="dot-area"
+                value={area}
+                onChange={(event) => setArea(event.target.value as Dot['area'])}
+              >
+                <option value="orchestrator">Orquestador</option>
+                <option value="dev">Dev</option>
+                <option value="saas">SaaS</option>
+                <option value="home">Domótica</option>
+                <option value="general">General</option>
+              </select>
+              <label className="permission-row">
+                <input
+                  type="checkbox"
+                  checked={telegramNotify}
+                  onChange={(event) => setTelegramNotify(event.target.checked)}
+                />
+                <span>
+                  <strong>Notificar por Telegram</strong>
+                  <small>
+                    Alertas proactivas y confirmaciones de tareas delegadas.
+                  </small>
+                </span>
+              </label>
+              <label className="permission-row">
+                <input
+                  type="checkbox"
+                  checked={sensitiveActions}
+                  onChange={(event) => setSensitiveActions(event.target.checked)}
+                />
+                <span>
+                  <strong>Requiere aprobación humana</strong>
+                  <small>
+                    Las acciones sensibles se pausan y piden confirmación por
+                    Telegram antes de ejecutarse.
+                  </small>
+                </span>
+              </label>
+            </fieldset>
           )}
           {dialog.type === 'dot' && (
             <fieldset className="space-access-fields">

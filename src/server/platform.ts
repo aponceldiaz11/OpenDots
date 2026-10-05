@@ -13,6 +13,8 @@ import { Store } from './store.js';
 import { WorkspaceStore } from './workspace.js';
 import { DotAgent } from './dot-agent.js';
 import { runThreadTurn } from './headless.js';
+import { TelegramService } from './telegram.js';
+import type { DelegateFn } from './harness-tools.js';
 import { setupStatus, type PlatformConfig } from './platform-config.js';
 import { validateRuntimeScope } from './runtime-scope.js';
 import { learningSelector } from './learning.js';
@@ -20,6 +22,7 @@ export class Platform {
   private channelStartupFailed = false;
   readonly pages: PageService;
   readonly computers: ComputerService;
+  readonly telegram: TelegramService;
   readonly intelligence?: CopilotKitIntelligence;
   readonly handler?: CopilotHonoApp;
   constructor(
@@ -27,6 +30,11 @@ export class Platform {
     readonly workspace: WorkspaceStore,
     readonly config: PlatformConfig,
   ) {
+    this.telegram = new TelegramService(
+      config.telegramBotToken,
+      config.telegramChatId,
+      workspace,
+    );
     this.computers = new ComputerService(
       workspace,
       config,
@@ -56,7 +64,16 @@ export class Platform {
         config,
         ownerId: workspace.ownerId,
         paused: () => store.settings().paused,
-        agent: () => new DotAgent(store, workspace, config, dotId, true),
+        agent: () =>
+          new DotAgent(
+            store,
+            workspace,
+            config,
+            dotId,
+            true,
+            this.telegram,
+            this.delegateFn(),
+          ),
       });
       channels.push(slack);
     }
@@ -72,7 +89,15 @@ export class Platform {
             .dots()
             .map((dot) => [
               dot.id,
-              new DotAgent(store, workspace, config, dot.id),
+              new DotAgent(
+                store,
+                workspace,
+                config,
+                dot.id,
+                false,
+                this.telegram,
+                this.delegateFn(),
+              ),
             ]),
         ),
       channels,
@@ -100,6 +125,7 @@ export class Platform {
       );
   }
   async start() {
+    this.telegram.start();
     if (this.handler?.channels) {
       try {
         await this.handler.channels.ready({ timeoutMs: 15000 });
@@ -111,6 +137,7 @@ export class Platform {
     }
   }
   async stop() {
+    await this.telegram.stop();
     await this.handler?.channels?.stop();
   }
   async createConversation(dotId: string, title: string) {
@@ -194,5 +221,39 @@ export class Platform {
       signal,
       metadata,
     );
+  }
+  private delegateFn(): DelegateFn {
+    return (input) => this.delegate(input);
+  }
+  async delegate(input: {
+    targetDotId: string;
+    prompt: string;
+    signal: AbortSignal;
+  }): Promise<string> {
+    this.requireReady();
+    const target = this.workspace.dot(input.targetDotId);
+    if (!target) throw new Error('Specialist Dot not found.');
+    let thread = this.workspace
+      .conversations()
+      .find(
+        (candidate) =>
+          candidate.dotId === input.targetDotId &&
+          candidate.title.startsWith('Delegado:'),
+      );
+    if (!thread)
+      thread = await this.createConversation(
+        input.targetDotId,
+        `Delegado: ${input.prompt.slice(0, 60)}`,
+      );
+    if (target.telegramNotify)
+      await this.telegram
+        .notify(`🔔 ${target.name}: nueva tarea delegada.`)
+        .catch(() => undefined);
+    const result = await this.turn(thread.id, input.prompt, input.signal);
+    if (target.telegramNotify)
+      await this.telegram
+        .notify(`✅ ${target.name} terminó la tarea delegada.`)
+        .catch(() => undefined);
+    return result;
   }
 }

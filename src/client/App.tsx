@@ -40,6 +40,20 @@ import { TaskRow } from './TaskPresentation';
 import { TaskActions } from './TaskActions';
 import { WorkspaceDialog, type Dialog } from './WorkspaceDialog';
 
+const PROVIDER_LABELS: Record<string, string> = {
+  'opencode-go': 'OpenCode Go',
+  'openrouter-free': 'OpenRouter :free',
+  openai: 'OpenAI',
+  custom: 'Custom',
+};
+const AREA_LABELS: Record<string, string> = {
+  dev: 'Dev',
+  saas: 'SaaS',
+  home: 'Domótica',
+  general: 'General',
+};
+const AREA_ORDER = ['dev', 'saas', 'home', 'general'] as const;
+
 export function App() {
   const [state, setState] = useState<State>();
   const [workspace, setWorkspace] = useState<WorkspaceState>();
@@ -255,6 +269,44 @@ export function App() {
         )}
       </main>
     );
+  const orchestrator = workspace.dots.find((item) => item.isOrchestrator);
+  const areaGroups = AREA_ORDER.map((area) => ({
+    area,
+    dots: workspace.dots.filter(
+      (item) => !item.isOrchestrator && item.area === area,
+    ),
+  })).filter((group) => group.dots.length);
+  const dotRow = (item: Dot, depth: number) => (
+    <div
+      className="dot-nav-row"
+      key={item.id}
+      style={{ marginLeft: depth * 14 }}
+    >
+      <button
+        className={`dot-nav ${dot.id === item.id && view === 'chat' ? 'active' : ''}`}
+        aria-current={dot.id === item.id && view === 'chat' ? 'page' : undefined}
+        onClick={() => chooseDot(item)}
+      >
+        <Mascot identity={item.id} name={item.name} small decorative />
+        <span>{item.name}</span>
+        <span
+          className={`provider-badge provider-${item.providerId}`}
+          title={PROVIDER_LABELS[item.providerId] ?? item.providerId}
+        >
+          {PROVIDER_LABELS[item.providerId] ?? item.providerId}
+        </span>
+      </button>
+      <button
+        className="icon-button dot-settings"
+        aria-label={`Edit ${item.name} settings`}
+        onClick={() =>
+          setDialog({ type: 'dot', dot: item, spaceId: item.spaceId })
+        }
+      >
+        <MoreHorizontal size={15} />
+      </button>
+    </div>
+  );
   const content = (
     <div className={`app template-app ${navCollapsed ? 'nav-collapsed' : ''}`}>
       <nav className="icon-rail" aria-label="Workspace navigation">
@@ -356,27 +408,13 @@ export function App() {
           </button>
         </div>
         <nav className="dots-nav" aria-label="Dots">
-          {workspace.dots.map((item) => (
-            <div className="dot-nav-row" key={item.id}>
-              <button
-                className={`dot-nav ${dot.id === item.id && view === 'chat' ? 'active' : ''}`}
-                aria-current={
-                  dot.id === item.id && view === 'chat' ? 'page' : undefined
-                }
-                onClick={() => chooseDot(item)}
-              >
-                <Mascot identity={item.id} name={item.name} small decorative />
-                <span>{item.name}</span>
-              </button>
-              <button
-                className="icon-button dot-settings"
-                aria-label={`Edit ${item.name} settings`}
-                onClick={() =>
-                  setDialog({ type: 'dot', dot: item, spaceId: item.spaceId })
-                }
-              >
-                <MoreHorizontal size={15} />
-              </button>
+          {orchestrator && dotRow(orchestrator, 0)}
+          {areaGroups.map((group) => (
+            <div className="dot-area-group" key={group.area}>
+              <div className="nav-label dot-area-label">
+                {AREA_LABELS[group.area] ?? group.area}
+              </div>
+              {group.dots.map((item) => dotRow(item, 1))}
             </div>
           ))}
         </nav>
@@ -481,8 +519,14 @@ export function App() {
             <span>
               {view === 'space'
                 ? workspace.spaces.find((space) => space.id === spaceId)?.name
-                : 'Dots'}
+                : (orchestrator?.name ?? 'Dots')}
             </span>
+            {view === 'chat' && dot.area !== 'orchestrator' && (
+              <>
+                <span>/</span>
+                <span>{AREA_LABELS[dot.area] ?? dot.area}</span>
+              </>
+            )}
             <span>/</span>
             <strong>
               {view === 'chat'
