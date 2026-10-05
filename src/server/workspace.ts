@@ -584,12 +584,22 @@ export class WorkspaceStore {
       tokens: number;
       requests: number;
     }[];
+    const recent = this.db
+      .prepare(
+        'SELECT COALESCE(SUM(totalTokens),0) AS tokens, COUNT(*) AS requests FROM usage_events WHERE createdAt>=?',
+      )
+      .get(Date.now() - 5 * 60 * 60 * 1000) as unknown as {
+      tokens: number;
+      requests: number;
+    };
     return {
       totalTokens: total.totalTokens,
       inputTokens: total.inputTokens,
       outputTokens: total.outputTokens,
       requests: total.requests,
       quotaTokens,
+      last5hTokens: recent.tokens,
+      last5hRequests: recent.requests,
       byProvider,
     };
   }

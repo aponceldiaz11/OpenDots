@@ -533,6 +533,10 @@ export function App() {
             <div className="quota-bar">
               <i style={{ width: `${quotaPercent}%` }} />
             </div>
+            <small className="quota-5h">
+              Últimas 5h: {usage.last5hTokens.toLocaleString()} tok ·{' '}
+              {usage.last5hRequests} req
+            </small>
           </div>
           <div className="version">
             OPEN SOURCE TEMPLATE <span>v0.1</span>
@@ -653,10 +657,6 @@ export function App() {
                   dot={dot}
                   initialPrompt={pendingPrompt}
                   onConsumed={() => setPendingPrompt(undefined)}
-                  voiceReady={workspace.setup.voice}
-                  calls={workspace.calls.filter(
-                    (call) => call.threadId === thread.id,
-                  )}
                   paused={state.settings.paused}
                   onSaved={refresh}
                   onComputer={() => setPane(true)}
@@ -727,7 +727,7 @@ export function App() {
                     <div className="composer-bottom">
                       <span>
                         <MessageCircle size={14} />
-                        Text and calls, one continuing conversation
+                        Texto y voz nativa, una conversación
                       </span>
                       <button
                         className="send-button"

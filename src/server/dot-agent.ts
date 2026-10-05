@@ -21,6 +21,7 @@ import { providerReady, resolveProvider } from './providers.js';
 import { parseUsage } from './usage.js';
 import { obsidianTools, vaultPrimer } from './obsidian-tools.js';
 import { homeAssistantTools } from './home-assistant-tools.js';
+import { devTools } from './docker-tools.js';
 import { loadSkills } from './skills.js';
 import type { TelegramService } from './telegram.js';
 import { Observable } from 'rxjs';
@@ -292,6 +293,8 @@ export class DotAgent extends AbstractAgent {
         serverTools.push(...obsidianTools(this.config.obsidianVaultPath));
         if (dot.area === 'home')
           serverTools.push(...homeAssistantTools(this.config));
+        if (dot.area === 'dev')
+          serverTools.push(...devTools(this.config, dot.id));
         if (dot.area === 'comms' || dot.telegramNotify)
           serverTools.push(
             notificationTool(this.workspace, this.telegram, dot),

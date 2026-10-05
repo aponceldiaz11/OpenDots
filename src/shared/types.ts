@@ -181,5 +181,7 @@ export interface UsageSummary {
   outputTokens: number;
   requests: number;
   quotaTokens: number | null;
+  last5hTokens: number;
+  last5hRequests: number;
   byProvider: { providerId: string; tokens: number; requests: number }[];
 }

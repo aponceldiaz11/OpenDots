@@ -8,6 +8,7 @@ interface SeedSpec {
   area: Dot['area'];
   parentKey?: string;
   provider: Dot['providerId'];
+  model?: string;
   instructions: string;
   sensitiveActions?: boolean;
   telegramNotify?: boolean;
@@ -20,6 +21,7 @@ const SPECS: SeedSpec[] = [
     name: 'Hermes · Orquestador Central',
     area: 'orchestrator',
     provider: 'opencode-go',
+    model: 'deepseek-v4-pro',
     isOrchestrator: true,
     telegramNotify: true,
     instructions:
@@ -31,6 +33,7 @@ const SPECS: SeedSpec[] = [
     area: 'dev',
     parentKey: 'orchestrator',
     provider: 'opencode-go',
+    model: 'kimi-k2.7-code',
     telegramNotify: true,
     instructions:
       'Motor autónomo de desarrollo: ejecuta scripts locales, lee y escribe ficheros, hace operaciones git y conduce bucles de refactor. Trabaja en pasos verificables y reporta diffs y comandos ejecutados.',
@@ -41,6 +44,7 @@ const SPECS: SeedSpec[] = [
     area: 'saas',
     parentKey: 'orchestrator',
     provider: 'opencode-go',
+    model: 'glm-5.3',
     instructions:
       'Product manager del SaaS: recibe feedback y requisitos, redacta User Stories y Bug Specs, y deja especificaciones escritas en las Pages compartidas para que dev-hermes-dot las implemente de forma asíncrona.',
   },
@@ -50,6 +54,7 @@ const SPECS: SeedSpec[] = [
     area: 'saas',
     parentKey: 'orchestrator',
     provider: 'opencode-go',
+    model: 'glm-5.3-flash',
     sensitiveActions: true,
     telegramNotify: true,
     instructions:
@@ -61,6 +66,7 @@ const SPECS: SeedSpec[] = [
     area: 'saas',
     parentKey: 'orchestrator',
     provider: 'opencode-go',
+    model: 'glm-5.3-flash',
     telegramNotify: true,
     instructions:
       'Analítica del SaaS: consulta métricas de negocio (MRR, churn, usuarios) y logs de rendimiento y servidores. Envía alertas proactivas ante errores 500 o caídas de Sentry cuando estén configurados.',
@@ -81,6 +87,7 @@ const SPECS: SeedSpec[] = [
     area: 'comms',
     parentKey: 'orchestrator',
     provider: 'opencode-go',
+    model: 'glm-5.3-flash',
     telegramNotify: true,
     instructions:
       'Comunicaciones y alertas: envía tarjetas de aviso al panel de la PWA móvil con send_notification y mensajes de Telegram con botones inline Aprobar/Rechazar para aprobaciones humanas. No uses servicios de pago (nada de Twilio/Vapi/PagerDuty).',
@@ -109,7 +116,7 @@ export function seedHarness(platform: Platform): { created: string[] } {
       false,
       {
         providerId: spec.provider,
-        model: seed.model,
+        model: spec.model ?? seed.model,
         baseUrl: seed.baseUrl,
         apiKeyEnv: seed.apiKeyEnv,
         area: spec.area,

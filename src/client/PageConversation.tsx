@@ -107,8 +107,6 @@ export function PageConversation({
           dot={dot}
           initialPrompt={pending}
           onConsumed={() => setPending(undefined)}
-          voiceReady={workspace.setup.voice}
-          calls={workspace.calls.filter((call) => call.threadId === thread.id)}
           paused={paused}
           onSaved={onRefresh}
           onSchedule={() => onSchedule(thread.id)}

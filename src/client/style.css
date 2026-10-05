@@ -4096,6 +4096,11 @@ h3 {
   background: linear-gradient(90deg, #10b981, #8b5cf6);
   border-radius: 999px;
 }
+.quota-5h {
+  display: block;
+  margin-top: 6px;
+  opacity: 0.7;
+}
 .notification-list {
   display: flex;
   flex-direction: column;

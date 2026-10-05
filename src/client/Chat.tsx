@@ -10,20 +10,16 @@ import {
   FilePlus,
   Link2,
   Mic,
-  Phone,
-  PhoneOff,
   Square,
   Volume2,
   X,
 } from 'lucide-react';
 import type { AssistantMessage } from '@ag-ui/core';
-import type { CallReceipt, Conversation, Dot } from '../shared/types';
+import type { Conversation, Dot } from '../shared/types';
 import { Mascot } from './Mascot';
-import { useVoice } from './useVoice';
 import { useChat } from './use-chat';
 import { useSpeech } from './use-speech';
 import { ToolCards } from './ToolCards';
-import { CallView } from './CallView';
 import type { Message } from '@ag-ui/core';
 
 export function Chat({
@@ -31,8 +27,6 @@ export function Chat({
   dot,
   initialPrompt,
   onConsumed,
-  voiceReady,
-  calls,
   paused,
   onSaved,
   onSchedule,
@@ -42,8 +36,6 @@ export function Chat({
   dot: Dot;
   initialPrompt?: string;
   onConsumed: () => void;
-  voiceReady: boolean;
-  calls: CallReceipt[];
   paused: boolean;
   onSaved: () => void;
   onSchedule: () => void;
@@ -93,7 +85,6 @@ export function Chat({
     ],
   );
   const { messages, running, loaded, error, setError } = chat;
-  const voice = useVoice(thread.id, onSaved, messages.at(-1)?.id);
   const [speakReplies, setSpeakReplies] = useState(false);
   const speech = useSpeech('es-ES', (text) =>
     setDraft((previous) => `${previous}${previous ? ' ' : ''}${text}`),
@@ -126,9 +117,6 @@ export function Chat({
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
   }, [messages.length, running]);
-  useEffect(() => {
-    if (paused && voice.status !== 'idle') void voice.end();
-  }, [paused]);
   const computerCalls = messages.flatMap((message) =>
     message.role === 'assistant' ? (message.toolCalls ?? []) : [],
   );
@@ -211,27 +199,6 @@ export function Chat({
           >
             <Clock3 size={18} />
           </button>
-          <button
-            className={`icon-button ${voice.status === 'active' ? 'on-call' : ''}`}
-            aria-label={
-              voice.status === 'idle' ? 'Start voice call' : 'End voice call'
-            }
-            title={
-              voiceReady
-                ? 'Talk with your Dot'
-                : 'Voice setup requires VOICE_API_KEY and VOICE_MODEL'
-            }
-            disabled={!voiceReady || paused || !loaded || !contextReady}
-            onClick={() =>
-              voice.status === 'idle' ? void voice.start() : void voice.end()
-            }
-          >
-            {voice.status === 'idle' ? (
-              <Phone size={18} />
-            ) : (
-              <PhoneOff size={18} />
-            )}
-          </button>
         </div>
       </header>
       {pageContext && (
@@ -257,7 +224,6 @@ export function Chat({
           <ChatRow
             key={message.id}
             message={message}
-            calls={calls}
             toolResults={chat.toolResults}
             threadId={thread.id}
             dot={dot}
@@ -286,26 +252,19 @@ export function Chat({
           </button>
         </div>
       )}
-      {(error || voice.error) && (
+      {error && (
         <div className="chat-error" role="alert">
-          {error || voice.error}
-          {error && (
-            <button
-              onClick={() => {
-                setError('');
-                void chat.reload();
-              }}
-            >
-              Reconnect
-            </button>
-          )}
+          {error}
+          <button
+            onClick={() => {
+              setError('');
+              void chat.reload();
+            }}
+          >
+            Reconnect
+          </button>
         </div>
       )}
-      <CallView
-        key={voice.status === 'idle' ? 'idle' : 'call'}
-        dot={dot}
-        voice={voice}
-      />
       <form
         className="chat-composer"
         onSubmit={(e) => {
@@ -401,9 +360,7 @@ export function Chat({
           )}
         </div>
         <div className="chat-compose-note">
-          {voiceReady
-            ? 'Text and voice, one conversation.'
-            : 'Text is ready. Voice needs separate server configuration.'}
+          Texto y voz nativa del navegador (Web Speech). Sin servicios de pago.
         </div>
       </form>
     </div>
@@ -412,7 +369,6 @@ export function Chat({
 
 function ChatRow({
   message,
-  calls,
   toolResults,
   threadId,
   dot,
@@ -423,7 +379,6 @@ function ChatRow({
   respond,
 }: {
   message: Message;
-  calls: CallReceipt[];
   toolResults: Record<string, string>;
   threadId: string;
   dot: Dot;
@@ -434,7 +389,6 @@ function ChatRow({
   respond: (toolCallId: string, content: string) => void;
 }) {
   const content = typeof message.content === 'string' ? message.content : '';
-  const call = calls.find((item) => item.anchorMessageId === message.id);
   return (
     <div>
       {content.trim() && (
@@ -455,19 +409,6 @@ function ChatRow({
           onComputer={onComputer}
           respond={respond}
         />
-      )}
-      {call && (
-        <div className="call-receipt">
-          <PhoneOff size={13} />
-          <span>
-            {call.status === 'failed'
-              ? 'Call failed'
-              : call.endedAt
-                ? `${Math.round((call.endedAt - call.startedAt) / 1000)}s · Call ended`
-                : 'Call in progress'}
-          </span>
-          {call.error && <small>{call.error}</small>}
-        </div>
       )}
     </div>
   );

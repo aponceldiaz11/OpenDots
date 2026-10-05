@@ -23,6 +23,10 @@ export interface PlatformConfig extends WebConfig {
   obsidianVaultPath?: string;
   haUrl?: string;
   haToken?: string;
+  devDockerEnabled?: boolean;
+  devDockerImage?: string;
+  godotDockerImage?: string;
+  devWorkspaceRoot?: string;
   computerSupervisorUrl?: string;
   computerSupervisorToken?: string;
   computerToken?: string;
