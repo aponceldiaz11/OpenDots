@@ -46,5 +46,17 @@ reuses or creates a `Delegado:` conversation for it, and runs the turn through
 
 ## New endpoints
 
-- `GET /api/workspace` now also returns `approvals` and `telegram`.
+- `GET /api/workspace` now also returns `approvals`, `telegram`,
+  `notifications` and `usage`.
 - `POST /api/harness/seed` seeds the hierarchy above.
+- `POST /api/chat` streams a turn as AG-UI SSE; `GET /api/conversations/:id/messages`
+  returns local history; `GET /api/usage` returns the quota summary.
+
+## Status
+
+The harness is now **CopilotKit-free**: all `@copilotkit/*` packages were
+removed and replaced with a local runtime (TanStack AI + AG-UI) and SQLite
+Threads. Added a PWA mobile front-end (manifest, service worker, free Web Speech
+voice), `/skills` context, Obsidian and Home Assistant tools, an OpenCode Go
+usage tracker with quota widget, and the `notifications-comms-dot` area.
+See `docs/ROADMAP.md` and `docs/DECOUPLING.md`.

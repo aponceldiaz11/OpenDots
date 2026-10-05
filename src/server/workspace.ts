@@ -11,7 +11,9 @@ import type {
   CallReceipt,
   Conversation,
   Dot,
+  NotificationRecord,
   Space,
+  UsageSummary,
 } from '../shared/types.js';
 export class WorkspaceStore {
   private db: DatabaseSync;
@@ -30,7 +32,10 @@ export class WorkspaceStore {
       CREATE TABLE IF NOT EXISTS task_threads(taskId TEXT PRIMARY KEY, threadId TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS calls(id TEXT PRIMARY KEY, threadId TEXT NOT NULL, startedAt INTEGER NOT NULL, endedAt INTEGER, status TEXT NOT NULL, transcript TEXT NOT NULL, error TEXT);
       CREATE TABLE IF NOT EXISTS captures(threadId TEXT PRIMARY KEY, value TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY, dotId TEXT NOT NULL, threadId TEXT, title TEXT NOT NULL, summary TEXT NOT NULL, status TEXT NOT NULL, createdAt INTEGER NOT NULL, decidedAt INTEGER, decidedBy TEXT);`);
+      CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY, dotId TEXT NOT NULL, threadId TEXT, title TEXT NOT NULL, summary TEXT NOT NULL, status TEXT NOT NULL, createdAt INTEGER NOT NULL, decidedAt INTEGER, decidedBy TEXT);
+      CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY, dotId TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, level TEXT NOT NULL, status TEXT NOT NULL, createdAt INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS usage_events(id INTEGER PRIMARY KEY AUTOINCREMENT, dotId TEXT NOT NULL, providerId TEXT NOT NULL, model TEXT, inputTokens INTEGER NOT NULL, outputTokens INTEGER NOT NULL, totalTokens INTEGER NOT NULL, createdAt INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS usage_events_created ON usage_events(createdAt);`);
     for (const [table, column, definition] of [
       ['dots', 'learningContainerId', 'TEXT'],
       ['dots', 'skillDeliveryEnabled', 'INTEGER NOT NULL DEFAULT 0'],
@@ -508,5 +513,94 @@ export class WorkspaceStore {
       .prepare('UPDATE approvals SET status=?, decidedAt=?, decidedBy=? WHERE id=?')
       .run(decision, Date.now(), decidedBy, id);
     return this.approval(id);
+  }
+  notifications(): NotificationRecord[] {
+    return this.db
+      .prepare('SELECT * FROM notifications ORDER BY createdAt DESC LIMIT 100')
+      .all() as unknown as NotificationRecord[];
+  }
+  createNotification(input: {
+    id: string;
+    dotId: string;
+    title: string;
+    body: string;
+    level: NotificationRecord['level'];
+  }): NotificationRecord {
+    this.db
+      .prepare(
+        "INSERT INTO notifications(id, dotId, title, body, level, status, createdAt) VALUES (?, ?, ?, ?, ?, 'unread', ?)",
+      )
+      .run(input.id, input.dotId, input.title, input.body, input.level, Date.now());
+    return this.db
+      .prepare('SELECT * FROM notifications WHERE id=?')
+      .get(input.id) as unknown as NotificationRecord;
+  }
+  markNotificationRead(id: string): boolean {
+    return (
+      this.db
+        .prepare("UPDATE notifications SET status='read' WHERE id=?")
+        .run(id).changes > 0
+    );
+  }
+  recordUsage(input: {
+    dotId: string;
+    providerId: string;
+    model: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }): void {
+    this.db
+      .prepare(
+        'INSERT INTO usage_events(dotId, providerId, model, inputTokens, outputTokens, totalTokens, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        input.dotId,
+        input.providerId,
+        input.model,
+        input.inputTokens,
+        input.outputTokens,
+        input.totalTokens,
+        Date.now(),
+      );
+  }
+  usageSummary(quotaTokens: number | null): UsageSummary {
+    const total = this.db
+      .prepare(
+        'SELECT COALESCE(SUM(inputTokens),0) AS inputTokens, COALESCE(SUM(outputTokens),0) AS outputTokens, COALESCE(SUM(totalTokens),0) AS totalTokens, COUNT(*) AS requests FROM usage_events',
+      )
+      .get() as unknown as {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      requests: number;
+    };
+    const byProvider = this.db
+      .prepare(
+        'SELECT providerId, COALESCE(SUM(totalTokens),0) AS tokens, COUNT(*) AS requests FROM usage_events GROUP BY providerId ORDER BY tokens DESC',
+      )
+      .all() as unknown as {
+      providerId: string;
+      tokens: number;
+      requests: number;
+    }[];
+    const recent = this.db
+      .prepare(
+        'SELECT COALESCE(SUM(totalTokens),0) AS tokens, COUNT(*) AS requests FROM usage_events WHERE createdAt>=?',
+      )
+      .get(Date.now() - 5 * 60 * 60 * 1000) as unknown as {
+      tokens: number;
+      requests: number;
+    };
+    return {
+      totalTokens: total.totalTokens,
+      inputTokens: total.inputTokens,
+      outputTokens: total.outputTokens,
+      requests: total.requests,
+      quotaTokens,
+      last5hTokens: recent.tokens,
+      last5hRequests: recent.requests,
+      byProvider,
+    };
   }
 }

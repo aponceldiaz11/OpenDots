@@ -3,8 +3,8 @@ import {
   setupStatus,
   type PlatformConfig,
 } from '../src/server/platform-config.js';
+
 const config: PlatformConfig = {
-  intelligenceKey: 'fixture',
   apiKey: 'fixture',
   model: 'fixture',
   baseUrl: 'https://example.com',
@@ -12,42 +12,21 @@ const config: PlatformConfig = {
   voiceName: 'marin',
   slackUsers: [],
 };
-it('never claims Slack online without a complete managed channel declaration', () => {
-  expect(setupStatus(config, 'online').slack).toBe('not_configured');
-  expect(
-    setupStatus({ ...config, slackChannel: 'support' }, 'online').slack,
-  ).toBe('setup_required');
-  expect(
-    setupStatus(
-      {
-        ...config,
-        slackChannel: 'support',
-        slackTeam: 'team',
-        slackUsers: ['owner'],
-      },
-      'online',
-    ).slack,
-  ).toBe('online');
+
+it('reports no missing setup when the primary provider is configured', () => {
+  expect(setupStatus(config).missing).toEqual([]);
+  expect(setupStatus(config).model).toBe(true);
 });
-it('requires Intelligence and model setup and disables voice when either is absent', () => {
+
+it('requires the OpenCode Go key and model without paid services', () => {
   expect(
-    setupStatus({
-      ...config,
-      intelligenceKey: '',
-      voiceKey: 'fixture',
-      voiceModel: 'fixture',
-    }),
-  ).toMatchObject({ missing: ['INTELLIGENCE_API_KEY'], voice: false });
+    setupStatus({ ...config, apiKey: undefined, model: undefined }).missing,
+  ).toEqual(['OPENCODE_GO_API_KEY', 'OPENCODE_GO_MODEL']);
 });
-it('reports activation failure until the SDK recovers online', () => {
-  const declared = {
-    ...config,
-    slackChannel: 'support',
-    slackTeam: 'team',
-    slackUsers: ['owner'],
-  };
-  expect(setupStatus(declared, 'offline', true).slack).toBe(
-    'activation_failed',
-  );
-  expect(setupStatus(declared, 'online', true).slack).toBe('online');
+
+it('enables voice only with a voice key and model', () => {
+  expect(
+    setupStatus({ ...config, voiceKey: 'key', voiceModel: 'model' }).voice,
+  ).toBe(true);
+  expect(setupStatus(config).voice).toBe(false);
 });

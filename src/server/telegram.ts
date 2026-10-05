@@ -135,7 +135,7 @@ export class TelegramService {
   }
 
   start(): void {
-    if (!this.enabled || this.running) return;
+    if (!this.token || this.running) return;
     this.running = true;
     this.pollLoop = this.poll();
   }
@@ -155,17 +155,34 @@ export class TelegramService {
       try {
         const updates = await this.call<TelegramUpdate[]>(
           'getUpdates',
-          { offset: this.offset, timeout: 25, allowed_updates: ['callback_query'] },
+          {
+            offset: this.offset,
+            timeout: 25,
+            allowed_updates: ['message', 'callback_query'],
+          },
           AbortSignal.timeout(35000),
         );
         for (const update of updates) {
           this.offset = update.update_id + 1;
+          if (!this.chatId) {
+            const id =
+              update.message?.chat.id ??
+              update.callback_query?.message?.chat.id;
+            if (id) await this.bind(id);
+          }
           await this.handleUpdate(update);
         }
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
+  }
+
+  private async bind(id: number): Promise<void> {
+    this.chatId = String(id);
+    await this.sendMessage(
+      '✅ OpenDots vinculado a este chat. Aquí llegarán alertas y aprobaciones.',
+    ).catch(() => undefined);
   }
 
   private async handleUpdate(update: TelegramUpdate): Promise<void> {

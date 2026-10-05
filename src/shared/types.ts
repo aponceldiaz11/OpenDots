@@ -71,7 +71,13 @@ export interface Space {
 }
 export type ProviderId =
   'opencode-go' | 'openrouter-free' | 'openai' | 'custom';
-export type DotArea = 'orchestrator' | 'dev' | 'saas' | 'home' | 'general';
+export type DotArea =
+  | 'orchestrator'
+  | 'dev'
+  | 'saas'
+  | 'home'
+  | 'comms'
+  | 'general';
 export interface DotProviderConfig {
   /** Inference provider used to route this Dot's turns. */
   providerId: ProviderId;
@@ -157,4 +163,25 @@ export interface WorkspaceState {
   calls: CallReceipt[];
   approvals: ApprovalRecord[];
   telegram: boolean;
+  notifications: NotificationRecord[];
+  usage: UsageSummary;
+}
+export interface NotificationRecord {
+  id: string;
+  dotId: string;
+  title: string;
+  body: string;
+  level: 'info' | 'warning' | 'critical';
+  status: 'unread' | 'read';
+  createdAt: number;
+}
+export interface UsageSummary {
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  requests: number;
+  quotaTokens: number | null;
+  last5hTokens: number;
+  last5hRequests: number;
+  byProvider: { providerId: string; tokens: number; requests: number }[];
 }
